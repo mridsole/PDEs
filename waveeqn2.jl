@@ -61,10 +61,14 @@ function wave_eqn_step!(soln::WaveSolution2D)
   end
 
   # we also need to apply the boundary conditions
-  soln.u[:, 1, 3] = zeros(n_x)
+  # soln.u[:, 1, 3] = zeros(n_x)
   soln.u[:, n_y, 3] = soln.u[:, n_y - 1, 3]
   soln.u[1, :, 3] = soln.u[2, :, 3]
   soln.u[n_x, :, 3] = soln.u[n_x - 1, :, 3]
+
+  # a pretty bad attempt at non-reflecting boundary conditions!
+  soln.u[:, 1, 3] = -(soln.u[:, 2, 3] - soln.u[:, 1, 3]) * (soln.dt / soln.dx)
+    + soln.u[:, 1, 2]
 
   # shift everything backwards
   soln.u[:, :, 1] = soln.u[:, :, 2]
@@ -102,8 +106,8 @@ end
 function main()
 
   n_x = 100 ; n_y = 100
-  dx = 0.001 ; dy = 0.001
-  dt = 0.0005 ; c = 0.05
+  dx = 0.0001 ; dy = 0.0001
+  dt = 0.0001 ; c = 1
 
   # our data
   soln = WaveSolution2D(n_x, n_y, dx, dy, dt, c)
@@ -112,26 +116,36 @@ function main()
   u_initial = zeros(Float64, (n_x, n_y))
   # u_initial[45:55, 2] = 1
 
-  x = collect(linspace(0, n_x - 1, n_x))
-  u_initial[:, 2] = exp(-0.001 .* (x - n_x / 2 + 20) .^ 2) + exp(-0.01 * (x - n_x / 2) .^ 2)
+  x = dx * collect(linspace(0, n_x - 1, n_x))
+  y = dy * collect(linspace(0, n_y - 1, n_y))
 
-  # ax = linspace(0, (n_x - 1) * dx, n_x)
-  # xx = [i for i in ax, j in ax]
-  # yy = [j for i in ax, j in ax]
+  xx = [i for i in x, j in y]
+  yy = [j for i in x, j in y]
+
+  # u_initial[:, 2] = exp(-0.001 .* (x - n_x / 2 + 20) .^ 2) + exp(-0.01 * (x - n_x / 2) .^ 2)
+  # u_initial[:, :] = exp(-100000*((xx - 0.05) .^2 + 5*(yy - 0.04) .^2))
+
   # u_initial = 10 * exp(-100000000.*(xx - (n_x .* dx ./ 2)).^2 - 100000000.*(yy - (n_y .* dy ./ 2)).^2)
 
+  figure()
+  imshow(u_initial, interpolation="none", cmap="gray", clim=(-1, 1))
+  pause(3)
+
   u_t_initial = zeros(Float64, (n_x, n_y))
+  u_initial[:, :] = exp(-100000*((xx - 0.05) .^2 + 5*(yy - 0.04) .^2))
 
   init_solution!(soln, u_initial, u_t_initial)
 
   n = 5000
   energy = zeros(n)
 
+  figure()
+
   # plot the data
   for i = 1:n
     if i % 10 == 1
       cla()
-      imshow(soln.u[:, :, 2], interpolation="none", cmap="gray", clim=(-0.08, 0.08))
+      imshow(soln.u[:, :, 2], interpolation="none", cmap="gray", clim=(-0.2, 0.2))
       # plot(soln.u[:, 2, 2])
       # ylim(-1, 1)
       println(maximum(soln.u[:, :, 2]))
@@ -147,4 +161,6 @@ function main()
 
   fig = figure()
   plot(energy)
+
+  return
 end
